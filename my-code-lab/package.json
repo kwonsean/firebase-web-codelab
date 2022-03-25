@@ -1,0 +1,16 @@
+{
+  "scripts": {
+    "build": "webpack",
+    "start": "webpack --watch --progress",
+    "visualize-bundle": "webpack --analyze"
+  },
+  "devDependencies": {
+    "dotenv": "^16.0.0",
+    "webpack": "^5.48.0",
+    "webpack-bundle-analyzer": "^4.4.2",
+    "webpack-cli": "^4.7.2"
+  },
+  "dependencies": {
+    "firebase": "^9.6.10"
+  }
+}
