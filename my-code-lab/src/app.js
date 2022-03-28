@@ -182,6 +182,22 @@ function handleSetName(uId) {
   });
 }
 
+// !! 한번에 여러개 값 변경도 가능 (data에 접근하여 값 수정 가능)
+// function handleSetName(uId) {
+//   const scoreRef = ref(DB, 'scoreboard/' + uId);
+//   runTransaction(scoreRef, data => {
+//     if (data) {
+//       const inputValue = name1Input.value;
+//       data.team1Name = inputValue;
+//       data.team1Score = Number(data.team1Score) + 10;
+//       team1NameEl.innerText = data.team1Name;
+//       team1ScoreEl.innerText = data.team1Score;
+//       name1Input.value = '';
+//     }
+//     return data;
+//   });
+// }
+
 // 이벤트 등록 (이게 최선일지 고민 필요) 일단 html에 onclick으로 붙이는건 오류가 발생함
 scorePlusBtn.addEventListener('click', () => handleScoreBtn(0, +1));
 scoreMinusBtn.addEventListener('click', () => handleScoreBtn(0, -1));
