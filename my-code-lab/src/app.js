@@ -12,8 +12,26 @@ import {
   remove,
   runTransaction,
 } from 'firebase/database';
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  setDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-
+import {
+  getStorage,
+  uploadBytesResumable,
+  getDownloadURL,
+  ref as storage_ref,
+} from 'firebase/storage';
 const firebaseConfig = {
   apiKey: process.env.FIREBASE_API_KEY,
   authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -218,3 +236,120 @@ get(child(ref(DB), `scoreboard/0`))
   .catch(error => {
     console.error('ERR', error);
   });
+
+var imageFormElement = document.getElementById('image-form');
+const mediaCaptureElement = document.getElementById('mediaCapture');
+const imageButtonElement = document.getElementById('submitImage');
+var LOADING_IMAGE_URL = 'https://www.google.com/images/spin-32.gif?a';
+
+// * 파일을 선택하면(바뀌면) change 이벤트 발생
+// * event.target.files[0]에서 파일 가져옴
+function onMediaFileSelected(event) {
+  event.preventDefault();
+  var file = event.target.files[0];
+  console.log(file);
+  // Clear the selection in the file picker input.
+  // 업로드한 파일을 받았으면 폼은 리셋 시킴
+  imageFormElement.reset();
+
+  // Check if the file is an image.
+  if (!file.type.match('image.*')) {
+    var data = {
+      message: 'You can only share images',
+      timeout: 2000,
+    };
+    signInSnackbarElement.MaterialSnackbar.showSnackbar(data);
+    return;
+  }
+  // // Check if the user is signed-in
+  // if (checkSignedInWithMessage()) {
+  //   saveImageMessage(file);
+  // }
+  saveImageMessage(file);
+}
+
+async function saveImageMessage(file) {
+  // TODO 9: Posts a new image as a message.
+  // 권한에 제한이 있었어서 오류가 발생했었음
+  try {
+    // 1 - We add a message with a loading icon that will get updated with the shared image.
+    const messageRef = await addDoc(collection(getFirestore(), 'messages'), {
+      name: 'ksh',
+      imageUrl: LOADING_IMAGE_URL,
+      profilePicUrl:
+        'https://pbs.twimg.com/profile_images/1374979417915547648/vKspl9Et_400x400.jpg',
+      timestamp: serverTimestamp(),
+    });
+
+    // 2 - Upload the image to Cloud Storage.
+    // console.log(messageRef.id); // 문서의 아이디
+    // const filePath = `${getAuth().currentUser.uid}/${messageRef.id}/${
+    //   file.name
+    // }`;
+    const filePath = `12345/${file.name}`;
+    // 유저 ID 폴더 안에 메시지 ID 폴더 안에 이미지가 저장됨
+    const newImageRef = storage_ref(getStorage(), filePath);
+    const fileSnapshot = await uploadBytesResumable(newImageRef, file);
+    // console.log(fileSnapshot.metadata.fullPath);
+
+    // 3 - Generate a public URL for the file.
+    const publicImageUrl = await getDownloadURL(newImageRef);
+    // console.log(publicImageUrl); // 이미지를 보여주는 URL로 변경
+
+    // 4 - Update the chat message placeholder with the image's URL.
+    await updateDoc(messageRef, {
+      imageUrl: publicImageUrl,
+      storageUri: fileSnapshot.metadata.fullPath,
+    });
+  } catch (error) {
+    console.error(
+      'There was an error uploading a file to Cloud Storage:',
+      error
+    );
+  }
+}
+
+// Events for image upload.
+imageButtonElement.addEventListener('click', function (e) {
+  e.preventDefault();
+  mediaCaptureElement.click();
+});
+mediaCaptureElement.addEventListener('change', onMediaFileSelected);
+
+const imagesEl = document.getElementById('images');
+
+function loadMessages() {
+  // TODO 8: Load and listen for new messages.
+  // 데이터를 가져오는 쿼리 작성 (컬렉션에 메시지에 접근해서 시간순으로 내림차순(최신순) 12개 가져오기)
+  const recentMessagesQuery = query(
+    collection(getFirestore(), 'messages'),
+    orderBy('timestamp', 'desc'),
+    limit(12)
+  );
+  // onSanpshot은 (쿼리, 콜백함수) 형식을 가지고 쿼리와 일치하는 문서에 변경이 있을 경우 콜백함수가 실행됨
+  // DB에서 값을 직접 수정해도 바로 반영이 됨 그렇다는 것은 여기서 말하는 문서는 DB에 컬렉션 밑에 있는 부분을 뜻하는 것 같음
+
+  // change는 데이터의 상태? 를 알려주는 요소 같고 여기서 진짜 데이터는 change.doc.data()를 통해 가져옴
+  onSnapshot(recentMessagesQuery, function (snapshot) {
+    snapshot.docChanges().forEach(function (change) {
+      console.log('change', change);
+      if (change.type === 'removed') {
+        deleteMessage(change.doc.id);
+      } else {
+        let message = change.doc.data();
+        const img = document.createElement('img');
+        img.src = message.imageUrl;
+        imagesEl.appendChild(img);
+      }
+    });
+  });
+}
+
+function deleteMessage(id) {
+  var div = document.getElementById(id);
+  // If an element for that message exists we delete it.
+  if (div) {
+    div.parentNode.removeChild(div);
+  }
+}
+loadMessages();
